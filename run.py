@@ -43,6 +43,7 @@ def main(cfg):
     set_seed(cfg.seed)
     extras(cfg)
 
+
     if cfg.DEBUG:
         cfg.epoch = 1
     else:
@@ -54,6 +55,7 @@ def main(cfg):
 
     # Load data
     train_loader, valid_loader, test_loader = load_dataloader(cfg)
+    # import pdb; pdb.set_trace()
     
     # Init lightning model
     print(f"Instantiating model <{cfg.model._target_}>")
@@ -61,8 +63,7 @@ def main(cfg):
     print(model)
     for data_path, sem, depth in valid_loader:
         break
-    summary(model.to(device), sem.to(device), depth.to(device))
-    # import pdb; pdb.set_trace()
+    summary(model.to(device), sem.to(device))
 
     trainer = Trainer(cfg, model, device)
 

@@ -1,6 +1,7 @@
 import os
 import random
 import hydra
+import cv2
 import numpy as np
 import pandas as pd
 import torch
@@ -20,6 +21,7 @@ def set_seed(random_seed):
 def load_dataloader(cfg):
     print(f"Instantiating datamodule <{cfg.datamodule._target_}>")
     dm = hydra.utils.instantiate(cfg.datamodule)
+    dm.set_cfg(cfg)
     dm.prepare_data()
     dm.setup(stage=None)
     train_loader = dm.train_dataloader()
@@ -30,6 +32,7 @@ def load_dataloader(cfg):
         cfg.len_train_loader = len(train_loader)
 
     return train_loader, valid_loader, test_loader
+
 
 def save_submission(cfg, results):
     sub_dict = {'id': [], 'predictions': []}
@@ -43,3 +46,20 @@ def save_submission(cfg, results):
     sub_name = f'{cfg.name}-{cfg.dt_string}.csv'
     sub_df.to_csv(os.path.join(sub_dir, sub_name), index=False)
     print(f'{sub_name} saved.')
+
+
+def get_png_image(img_path):
+    img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    img = np.expand_dims(img, axis=-1)
+    return img
+
+
+def log_predictions(id, x, y, pred):
+
+    import wandb
+
+    cat = np.concatenate([x, y, pred], axis=2)
+    cat = np.transpose(cat , (1, 2, 0))
+
+    images = wandb.Image(cat, caption=f"{id} (SEM / DEPTH / OUTPUT)")
+    wandb.log({"examples": images})

@@ -2,8 +2,8 @@
 
 defaults:
   - _self_
-  - datamodule: libri.yaml
-  - model: advance.yaml
+  - datamodule: sem.yaml
+  - model: basic.yaml
   - path: cricket.yaml
   - trainer: default.yaml
 
@@ -11,13 +11,17 @@ name: 'first_try'
 device: 'cuda:0'
 seed: 42
 
-DEBUG: False
+DEBUG: True
+small_dataset: False
 
 # learning
 resume: False
-epoch: 100
-es_patience: 0 # if es_patient == 0, do not early stop.
+epoch: 30
+es_patience: 5 # if es_patient == 0, do not early stop.
 mixed_precision: True
+
+# etc
+original_img_size: [72, 48]
 
 # set in run codes
 dt_string: None

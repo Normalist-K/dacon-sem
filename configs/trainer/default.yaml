@@ -1,14 +1,14 @@
 model_ema: True
-criterion: CrossEntropyLoss
+criterion: MSELoss
 optimizer: 
   name: adam # adamw, adam, sgd
-  lr: 2e-3
+  lr: 3e-4
   weight_decay: 0
   momentum: 0.9
-  clipping: True
+  clipping: False
 scheduler:
   name: CosineAnnealingLR
-  min_lr: 2e-7
+  min_lr: 1e-7
   # name: ReduceLROnPlateau
   # lr_factor: 0.5
   # patience: 5

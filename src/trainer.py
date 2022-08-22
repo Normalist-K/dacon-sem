@@ -14,6 +14,7 @@ from warmup_scheduler import GradualWarmupScheduler
 
 from src.models.components.model_ema import ModelEMA
 from src.utils.metric import calc_metric
+from src.utils.utils import log_predictions
 
 
 class Trainer:
@@ -199,6 +200,14 @@ class Trainer:
             
             if self.cfg.DEBUG and batch_idx > 5:
                 break
+            
+        if not self.cfg.DEBUG:
+            log_predictions(
+                os.path.basename(data_path[0][0]),
+                x[0].detach().cpu().numpy(),
+                y[0].detach().cpu().numpy(), 
+                pred[0].detach().cpu().numpy()
+            )
 
         return np.average(losses)
 

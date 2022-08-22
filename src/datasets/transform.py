@@ -9,6 +9,22 @@ class AlbumTransforms:
     def __call__(self, img):
         return self.transforms(image=np.array(img))['image']
 
+def get_transform(
+    resize
+):
+    label_transform = A.Compose([
+        A.Resize(resize[0], resize[1], always_apply=True),
+        ToTensorV2()
+    ])
+
+    transform = A.Compose([
+        A.Normalize(mean=[0.5],std=[0.5]),
+        label_transform
+    ])
+
+
+    return AlbumTransforms(transform), AlbumTransforms(label_transform)
+
 # image_net_norm_mean = (0.485, 0.456, 0.406)
 # image_net_norm_std = (0.229, 0.224, 0.225)
 face_norm_mean = (0.511, 0.402, 0.351)

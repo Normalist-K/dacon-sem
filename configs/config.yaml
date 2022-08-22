@@ -16,7 +16,7 @@ small_dataset: False
 
 # learning
 resume: False
-epoch: 10
+epoch: 20
 es_patience: 5 # if es_patient == 0, do not early stop.
 mixed_precision: True
 

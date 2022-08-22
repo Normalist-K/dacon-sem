@@ -75,7 +75,9 @@ def main(cfg):
     if not cfg.DEBUG:
         print("Starting testing")
         results = trainer.inference(test_loader)
+        print("Saving result...")
         save_submission(cfg, results)
+        print("Done!")
 
 
 if __name__ == "__main__":

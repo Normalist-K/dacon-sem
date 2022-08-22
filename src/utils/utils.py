@@ -1,5 +1,7 @@
 import os
+import time
 import random
+import zipfile
 import hydra
 import cv2
 import numpy as np
@@ -35,17 +37,20 @@ def load_dataloader(cfg):
 
 
 def save_submission(cfg, results):
-    sub_dict = {'id': [], 'predictions': []}
-    for i, label in enumerate(results):
-        sub_dict['id'].append(i)
-        sub_dict['predictions'].append(label)
+    result_names, result_preds = results
 
-    sub_df = pd.DataFrame(sub_dict)
-    print(len(sub_df))
-    sub_dir = cfg.path.submissions
-    sub_name = f'{cfg.name}-{cfg.dt_string}.csv'
-    sub_df.to_csv(os.path.join(sub_dir, sub_name), index=False)
-    print(f'{sub_name} saved.')
+    save_path = cfg.path.submissions
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    os.makedirs(save_path, exist_ok=True)
+    os.chdir(save_path)
+    sub_imgs = []
+    for name, pred_img in zip(result_names, result_preds):
+        cv2.imwrite(name, pred_img)
+        sub_imgs.append(name)
+    with zipfile.ZipFile(f"../submission-{timestr}.zip", 'w') as sub:
+        for name in sub_imgs:
+            sub.write(name)
+    print(f'submission-{timestr}.zip saved.')
 
 
 def get_png_image(img_path):

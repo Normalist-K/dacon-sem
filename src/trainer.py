@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.cuda.amp import GradScaler, autocast
+import albumentations as A
 import wandb
 from warmup_scheduler import GradualWarmupScheduler
 
@@ -225,7 +226,7 @@ class Trainer:
                 losses.append(loss.cpu().item())
                 
                 metric = rmse(pred, y)
-                metrics.append(metric)
+                metrics.append(metric.cpu().item())
                 
                 # check results
                 if not self.cfg.DEBUG and batch_idx == 0:
@@ -244,11 +245,11 @@ class Trainer:
         self.best_model = self.best_model.to(self.device)
         self.best_model.eval()
         
-        result_ids = []
+        result_names = []
         result_preds = []
 
         p_bar = tqdm(enumerate(test_loader), total=len(test_loader), desc='Infer', position=0, leave=True)
-        for i, (batch_id, x) in p_bar:
+        for i, (batch_path, x) in p_bar:
             torch.cuda.empty_cache()
             
             x = x.to(self.device)
@@ -256,8 +257,13 @@ class Trainer:
             with torch.no_grad():
                 batch_pred = self.best_model(x)
 
-                for id, pred in zip(batch_id, batch_pred):
-                    result_ids.append(id)
+                for path, pred in zip(batch_path, batch_pred):
+                    name = os.path.basename(path)
+
+                    pred = pred.squeeze().cpu().numpy() * 255.
+                    pred = A.Resize(*self.cfg.original_img_size, always_apply=True)(image=pred)['image']
+
+                    result_names.append(name)
                     result_preds.append(pred)
 
-        return result_ids, result_preds
+        return result_names, result_preds

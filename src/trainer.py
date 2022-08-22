@@ -13,7 +13,7 @@ import wandb
 from warmup_scheduler import GradualWarmupScheduler
 
 from src.models.components.model_ema import ModelEMA
-from src.utils.metric import calc_metric
+from src.utils.metric import rmse
 from src.utils.utils import log_predictions
 
 
@@ -31,6 +31,8 @@ class Trainer:
             criterion = nn.CrossEntropyLoss(reduction='none')
         elif cfg.trainer.criterion == 'MSELoss':
             criterion = nn.MSELoss()
+        elif cfg.trainer.criterion == 'L1Loss':
+            criterion = nn.L1Loss()
 
         # Optimizer
         if cfg.trainer.optimizer.name.lower() == 'adamw':
@@ -67,7 +69,7 @@ class Trainer:
                                                total_epoch=3*cfg.len_train_loader, 
                                                after_scheduler=scheduler)
 
-        self.criterion = criterion
+        self.criterion = criterion.to(self.device)
         self.optimizer = optimizer
         self.scheduler = scheduler
 
@@ -201,14 +203,6 @@ class Trainer:
             if self.cfg.DEBUG and batch_idx > 5:
                 break
             
-        if not self.cfg.DEBUG:
-            log_predictions(
-                os.path.basename(data_path[0][0]),
-                x[0].detach().cpu().numpy(),
-                y[0].detach().cpu().numpy(), 
-                pred[0].detach().cpu().numpy()
-            )
-
         return np.average(losses)
 
     def validation(self, valid_loader):
@@ -226,17 +220,21 @@ class Trainer:
 
             with torch.no_grad():
                 pred = self.model(x)
+
                 loss = self.criterion(pred, y)
+                losses.append(loss.cpu().item())
                 
-                metric = calc_metric(pred, y)
+                metric = rmse(pred, y)
                 metrics.append(metric)
                 
+                # check results
                 if not self.cfg.DEBUG and batch_idx == 0:
-                    # check results
-                    pass
-
-
-                losses.append(loss.cpu().item())
+                    log_predictions(
+                        os.path.basename(data_path[0][0]),
+                        x[0].detach().cpu().numpy(),
+                        y[0].detach().cpu().numpy(), 
+                        pred[0].detach().cpu().numpy()
+                    )
 
         torch.cuda.empty_cache()
 

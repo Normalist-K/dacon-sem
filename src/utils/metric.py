@@ -1,5 +1,6 @@
 import torch
+import torch.nn as nn
 
 
-def calc_metric(pred, y):
-    pass
+def rmse(pred, y):
+    return torch.sqrt(nn.MSELoss()(pred*255., y*255.))

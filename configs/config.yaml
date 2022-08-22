@@ -7,16 +7,16 @@ defaults:
   - path: cricket.yaml
   - trainer: default.yaml
 
-name: 'first_try'
+name: 'baseline_unet++_eff_b0'
 device: 'cuda:0'
 seed: 42
 
-DEBUG: True
+DEBUG: False
 small_dataset: False
 
 # learning
 resume: False
-epoch: 30
+epoch: 10
 es_patience: 5 # if es_patient == 0, do not early stop.
 mixed_precision: True
 

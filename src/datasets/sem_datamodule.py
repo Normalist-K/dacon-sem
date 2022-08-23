@@ -17,7 +17,7 @@ class SEMDataModule():
         n_splits: int = 5,
         fold: int = 0,
         batch_size: int = 128,
-        num_workers: int = 0,
+        num_workers: int = 8,
         pin_memory: bool = True,
         verbose: bool = False,
         resize: list = [96, 64],
@@ -75,7 +75,7 @@ class SEMDataModule():
         test_sem_paths = os.path.join(data_path, 'test', 'SEM', '*.png')
         test_sem_paths = np.array(sorted(glob(test_sem_paths)))
 
-        transform, label_transform = get_transform(self.resize)
+        transform = get_transform(self.resize)
 
         # load datasets only if they're not loaded already
         if not self.data_train and not self.data_val:
@@ -83,15 +83,15 @@ class SEMDataModule():
             if stage in (None, 'fit'):
                 if self.cfg.small_dataset:
                     small_len = len(train_sem_paths) // 10
-                    self.data_train = SEMDataset(train_sem_paths[:small_len], train_depth_paths[:small_len], transform, label_transform)
+                    self.data_train = SEMDataset(train_sem_paths[:small_len], train_depth_paths[:small_len], transform)
                 else:
-                    self.data_train = SEMDataset(train_sem_paths, train_depth_paths, transform, label_transform)
-                self.data_val = SEMDataset(valid_sem_paths, valid_depth_paths, transform, label_transform)
+                    self.data_train = SEMDataset(train_sem_paths, train_depth_paths, transform)
+                self.data_val = SEMDataset(valid_sem_paths, valid_depth_paths, transform)
                 if self.verbose: print('train/val dataset loaded.')
 
         if not self.data_test:
             if stage in (None, 'predict'):
-                self.data_test = SEMDataset(test_sem_paths, None, transform, label_transform)
+                self.data_test = SEMDataset(test_sem_paths, None, transform)
                 if self.verbose: print('test dataset loaded.')
 
 

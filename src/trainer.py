@@ -192,6 +192,7 @@ class Trainer:
                 
                 self.optimizer.step()
 
+
             losses.append(loss.cpu().item())
             pbar.set_postfix(loss=loss.cpu().item())
             

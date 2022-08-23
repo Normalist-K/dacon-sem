@@ -32,6 +32,12 @@ class SEMDataset(Dataset):
 
             return (sem_path, depth_path), sem_img, depth_img
         else:
+            if self.transform:
+                transformed = self.transform(image=sem_img, mask=depth_img)
+                sem_img = transformed['image']
+            else:
+                sem_img = sem_img / 255.
+
             return sem_path, sem_img
 
 

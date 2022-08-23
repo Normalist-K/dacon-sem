@@ -11,18 +11,18 @@ class AlbumTransforms:
 
 def get_transform(resize):
     transform = A.Compose([
-    A.Resize(96, 64, always_apply=True),
-    A.HorizontalFlip(p=0.5),
-    A.VerticalFlip(p=0.5),
-    A.ShiftScaleRotate(shift_limit=0.1, 
-                       scale_limit=0.1, 
-                       rotate_limit=5, 
-                       p=0.5),
-    # A.GaussNoise(var_limit=(10.0, 50.0), p=1),
-    A.Normalize(mean=[0.5],std=[0.5]),
-    ToTensorV2()
+        A.Resize(96, 64, always_apply=True),
+        # A.HorizontalFlip(p=0.5),
+        # A.VerticalFlip(p=0.5),
+        # A.ShiftScaleRotate(shift_limit=0.05, 
+        #                    scale_limit=0.05, 
+        #                    rotate_limit=2, 
+        #                    p=0.5),
+        # A.GaussNoise(var_limit=(10.0, 50.0), p=1),
+        # A.Normalize(mean=[0.5],std=[0.5]),
+        ToTensorV2()
     ])
-    
+
     return transform
 
 # image_net_norm_mean = (0.485, 0.456, 0.406)

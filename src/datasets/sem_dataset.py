@@ -1,5 +1,6 @@
 import cv2
 from torch.utils.data import Dataset
+from albumentations.pytorch import ToTensorV2
 
 
 class SEMDataset(Dataset):
@@ -16,29 +17,32 @@ class SEMDataset(Dataset):
         
     def __getitem__(self, idx):
         sem_path = self.sem_path_list[idx]
-        sem_img = cv2.imread(sem_path, cv2.IMREAD_GRAYSCALE)
+        sem_img = cv2.imread(sem_path, cv2.IMREAD_GRAYSCALE) / 255.
 
         if self.depth_path_list is not None:
             depth_path = self.depth_path_list[idx]
-            depth_img = cv2.imread(depth_path, cv2.IMREAD_GRAYSCALE)
+            depth_img = cv2.imread(depth_path, cv2.IMREAD_GRAYSCALE) / 255.
 
             if self.transform:
                 transformed = self.transform(image=sem_img, mask=depth_img)
                 sem_img = transformed['image']
-                depth_img = transformed['mask'].unsqueeze(dim=0) / 255.
+                depth_img = transformed['mask'].unsqueeze(dim=0)
             else:
-                sem_img = sem_img / 255.
-                depth_img = depth_img / 255.
+                transform = ToTensorV2()
+                sem_img = transform(image=sem_img)['image']
+                depth_img = transform(image=depth_img)['image']
 
-            return (sem_path, depth_path), sem_img, depth_img
+            return (sem_path, depth_path), sem_img.float(), depth_img.float()
+
         else:
             if self.transform:
-                transformed = self.transform(image=sem_img, mask=depth_img)
+                transformed = self.transform(image=sem_img)
                 sem_img = transformed['image']
             else:
-                sem_img = sem_img / 255.
+                transform = ToTensorV2()
+                sem_img = transform(image=sem_img)['image']
 
-            return sem_path, sem_img
+            return sem_path, sem_img.float()
 
 
     def __len__(self):

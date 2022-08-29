@@ -19,6 +19,7 @@ class SEMDataset(Dataset):
             self.infer_transform = transform[1]
         else:
             self.train_transform = None
+            self.infer_transform = None
         self.aux = aux
 
     def embedding(self, case):

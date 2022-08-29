@@ -1,5 +1,6 @@
 model_ema: False
 criterion: MSELoss
+loss_alpha: 100
 optimizer: 
   name: adam # adamw, adam, sgd
   lr: 3e-4

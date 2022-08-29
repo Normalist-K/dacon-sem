@@ -1,3 +1,4 @@
+from copy import copy, deepcopy
 import os
 from typing import Optional
 from glob import glob
@@ -64,11 +65,12 @@ class SEMDataModule():
 
         skf = StratifiedKFold(n_splits=self.n_splits, random_state=self.cfg.seed, shuffle=True)
         splitlist = list(skf.split(range(data_len),[0]*data_len))
-        if self.verbose:
-            print(f'Fold {self.fold} : train {len(splitlist[self.fold][0])}, valid {len(splitlist[self.fold][1])}')
 
-        train_index = splitlist[0][0]
-        valid_index = splitlist[0][1]
+        train_index = splitlist[self.fold][0]
+        valid_index = splitlist[self.fold][1]
+        
+        if self.verbose:
+            print(f'Fold {self.fold} : train {len(train_index)}, valid {len(valid_index)}')
 
         train_sem_paths = simulation_sem_paths[train_index]
         train_depth_paths = simulation_depth_paths[train_index]
@@ -87,7 +89,7 @@ class SEMDataModule():
             if stage in (None, 'fit'):
                 if self.cfg.small_dataset:
                     small_len = len(train_sem_paths) // 10
-                    self.data_train = SEMDataset(train_sem_paths[:small_len], train_depth_paths[:small_len], transform, self.aux)
+                    self.data_train = SEMDataset(deepcopy(train_sem_paths[:small_len]), deepcopy(train_depth_paths[:small_len]), transform, self.aux)
                 else:
                     self.data_train = SEMDataset(train_sem_paths, train_depth_paths, transform, self.aux)
                 self.data_val = SEMDataset(valid_sem_paths, valid_depth_paths, transform, self.aux)

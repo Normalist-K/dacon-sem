@@ -39,11 +39,11 @@ class Trainer:
         if cfg.trainer.optimizer.name.lower() == 'adamw':
             optimizer = optim.AdamW(self.model.parameters(),
                                     lr=cfg.trainer.optimizer.lr,
-                                    amsgrad=cfg.trainer.optimizer.amsgrad,
                                     weight_decay=cfg.trainer.optimizer.weight_decay)
         elif cfg.trainer.optimizer.name.lower() == 'adam':
             optimizer = optim.Adam(self.model.parameters(),
                                    lr=cfg.trainer.optimizer.lr,
+                                    amsgrad=cfg.trainer.optimizer.amsgrad,
                                    weight_decay=cfg.trainer.optimizer.weight_decay)
         elif cfg.trainer.optimizer.name.lower() == 'sgd':
             optimizer = optim.SGD(self.model.parameters(),
@@ -75,6 +75,8 @@ class Trainer:
                                                total_epoch=3*cfg.len_train_loader, 
                                                after_scheduler=scheduler)
 
+        if self.cfg.model.aux:
+            self.aux_criterion = nn.CrossEntropyLoss().to(self.device)
         self.criterion = criterion.to(self.device)
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -108,13 +110,13 @@ class Trainer:
         for epoch in range(self.start_epoch, self.start_epoch + self.cfg.epoch):
             
             # Train
-            train_loss = self.train_epoch(train_loader)
+            train_loss, train_depth_loss, train_aux_loss = self.train_epoch(train_loader)
             print(f'\nEpoch: {epoch}')
             print(f'Train Loss: {train_loss:.6f}')
 
             # Validation
-            valid_loss, valid_metric = self.validation(valid_loader)
-            print(f'Valid Loss: {valid_loss:.6f}, Valid metric: {valid_metric:.6f}')
+            valid_loss, valid_metric, valid_depth_loss, valid_aux_loss, valid_acc = self.validation(valid_loader)
+            print(f'Valid Loss: {valid_loss:.6f}, Valid metric: {valid_metric:.6f}, Valid acc: {valid_acc:.2f}')
             
             if self.cfg.trainer.scheduler.name == 'ReduceLROnPlateau':
                 self.scheduler.step(valid_loss)
@@ -122,8 +124,13 @@ class Trainer:
             # Log
             if not self.cfg.DEBUG:
                 wandb.log({"train_loss": train_loss,
+                           "train_depth_loss": train_depth_loss,
+                           "train_aux_loss": train_aux_loss,
                            "valid_loss": valid_loss, 
                            "valid_metric": valid_metric,
+                           "valid_depth_loss": valid_depth_loss,
+                           "valid_aux_loss": valid_aux_loss,
+                           "valid_acc": valid_acc,
                            "lr": self.optimizer.param_groups[0]['lr'],
                            })
         
@@ -169,6 +176,8 @@ class Trainer:
         self.model.train()
 
         losses = []
+        depth_losses = []
+        aux_losses = []
         pbar = tqdm(enumerate(train_loader), total=len(train_loader), leave=True, position=0, desc='Train')
         for batch_idx, (data_path, x, y, aux_y) in pbar:
 
@@ -176,11 +185,14 @@ class Trainer:
             
             x = x.to(self.device)
             y = y.to(self.device)
+            aux_y = aux_y.to(self.device)
         
             if self.cfg.mixed_precision:
                 with autocast():
-                    pred = self.model(x)
-                    loss = self.criterion(pred, y)
+                    pred, aux_pred = self.model(x)
+                    depth_loss = self.criterion(pred, y)
+                    aux_loss = self.aux_criterion(aux_pred, aux_y)
+                    loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
 
                 self.scaler.scale(loss).backward()
 
@@ -193,8 +205,10 @@ class Trainer:
                 self.scaler.update()
 
             else:
-                pred = self.model(x)
-                loss = self.criterion(pred, y)
+                pred, aux_pred = self.model(x)
+                depth_loss = self.criterion(pred, y)
+                aux_loss = self.aux_criterion(aux_pred, aux_y)
+                loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
 
                 loss.backward()
 
@@ -204,7 +218,8 @@ class Trainer:
                 
                 self.optimizer.step()
 
-
+            depth_losses.append(depth_loss.cpu().item())
+            aux_losses.append(aux_loss.cpu().item())
             losses.append(loss.cpu().item())
             pbar.set_postfix(loss=loss.cpu().item())
             
@@ -214,10 +229,7 @@ class Trainer:
             if (self.scheduler is not None) and (self.cfg.trainer.scheduler.name != 'ReduceLROnPlateau'):
                 self.scheduler.step()
             
-            if self.cfg.DEBUG and batch_idx > 5:
-                break
-            
-        return np.average(losses)
+        return np.average(losses), np.average(depth_losses), np.average(aux_losses)
 
     def validation(self, valid_loader):
         if self.cfg.trainer.model_ema:
@@ -226,20 +238,33 @@ class Trainer:
             model = self.model.eval()
 
         losses, metrics = [], []
+        depth_losses = []
+        aux_losses = []
+        correct, total = 0, 0
         p_bar = tqdm(enumerate(valid_loader), total=len(valid_loader), desc='Valid', position=0, leave=True)
         for batch_idx, (data_path, x, y, aux_y) in p_bar:
             
             x = x.to(self.device)
             y = y.to(self.device)
+            aux_y = aux_y.to(self.device)
 
             with torch.no_grad():
-                pred = self.model(x)
+                pred, aux_pred = self.model(x)
 
-                loss = self.criterion(pred, y)
+                depth_loss = self.criterion(pred, y)
+                aux_loss = self.aux_criterion(aux_pred, aux_y)
+                loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
+
+                depth_losses.append(depth_loss.cpu().item())
+                aux_losses.append(aux_loss.cpu().item())
                 losses.append(loss.cpu().item())
                 
-                metric = rmse(pred, y)
+                metric = rmse(pred, y, self.device)
                 metrics.append(metric.cpu().item())
+
+                _, predicted = torch.max(aux_pred.data, 1)
+                total += aux_y.size(0)
+                correct += (predicted == aux_y).sum().item()
                 
                 # check results
                 if not self.cfg.DEBUG and batch_idx == 0:
@@ -249,8 +274,9 @@ class Trainer:
                         y[0].detach().cpu().numpy(), 
                         pred[0].detach().cpu().numpy()
                     )
+        accuracy = correct / total * 100
 
-        return np.average(losses), np.average(metrics)
+        return np.average(losses), np.average(metrics), np.average(depth_losses), np.average(aux_losses), accuracy
 
     def inference(self, test_loader):
         self.best_model = self.best_model.to(self.device)
@@ -264,7 +290,7 @@ class Trainer:
             batch_x = batch_x.to(self.device)
 
             with torch.no_grad():
-                batch_pred = self.best_model(batch_x)
+                batch_pred, _ = self.best_model(batch_x)
 
                 batch_pred = batch_pred * 255.
 
@@ -280,7 +306,9 @@ class Trainer:
                     name = os.path.basename(path)
 
                     pred = pred.squeeze().cpu().numpy()
-                    pred = A.Resize(*self.cfg.original_img_size, always_apply=True)(image=pred)['image']
+                    if self.cfg.datamodule.aug:
+                        pred = A.Resize(*self.cfg.original_img_size, always_apply=True)(image=pred)['image']
+                        
 
                     result_names.append(name)
                     result_preds.append(pred)

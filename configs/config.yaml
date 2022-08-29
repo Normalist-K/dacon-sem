@@ -8,7 +8,7 @@ defaults:
   - trainer: default.yaml
 
 name: 'baseline_unet++_eff_b0'
-device: 'cuda:2'
+device: 'cuda:0'
 seed: 42
 
 DEBUG: False
@@ -18,7 +18,7 @@ small_dataset: False
 resume: False
 epoch: 10
 es_patience: 0 # if es_patient == 0, do not early stop.
-mixed_precision: True
+mixed_precision: False
 
 # etc
 original_img_size: [72, 48]
@@ -26,3 +26,7 @@ original_img_size: [72, 48]
 # set in run codes
 dt_string: None
 len_train_loader: None
+
+# wandb
+project: 'dacon-sem'
+entity: 'normalkim'

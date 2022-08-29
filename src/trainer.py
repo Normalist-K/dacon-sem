@@ -15,7 +15,7 @@ from warmup_scheduler import GradualWarmupScheduler
 
 from src.models.components.model_ema import ModelEMA
 from src.utils.metric import rmse
-from src.utils.utils import log_predictions
+from src.utils.utils import log_infer_results, log_predictions, unnormalize
 
 
 class Trainer:
@@ -39,6 +39,7 @@ class Trainer:
         if cfg.trainer.optimizer.name.lower() == 'adamw':
             optimizer = optim.AdamW(self.model.parameters(),
                                     lr=cfg.trainer.optimizer.lr,
+                                    amsgrad=cfg.trainer.optimizer.amsgrad,
                                     weight_decay=cfg.trainer.optimizer.weight_decay)
         elif cfg.trainer.optimizer.name.lower() == 'adam':
             optimizer = optim.Adam(self.model.parameters(),
@@ -56,6 +57,10 @@ class Trainer:
                                                              'min',
                                                              factor=cfg.trainer.scheduler.lr_factor,
                                                              patience=cfg.trainer.scheduler.patience,
+                                                             threshold_mode= cfg.trainer.scheduler.threshold_mode,
+                                                             cooldown= cfg.trainer.scheduler.cooldown,
+                                                             min_lr= cfg.trainer.scheduler.min_lr,
+                                                             eps= cfg.trainer.scheduler.eps,
                                                              verbose=verbose)
         elif cfg.trainer.scheduler.name == 'CosineAnnealingLR':
             scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 
@@ -74,6 +79,14 @@ class Trainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
 
+        if verbose:
+            print('==Criterion==')
+            print(self.criterion)
+            print('==Optimizer==')
+            print(self.optimizer)
+            print('==Scheduler==')
+            print(self.scheduler)
+
         self.start_epoch = 0
         if cfg.resume:
             checkpoint = torch.load(cfg.path.pretrained)
@@ -81,7 +94,8 @@ class Trainer:
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             self.start_epoch = checkpoint['epoch'] + 1
-            print(f"Model loaded: {cfg.path.pretrained}")
+            if verbose:
+                print(f"Model loaded: {cfg.path.pretrained}")
         
         self.best_model = deepcopy(self.model)
         self.best_valid_metric = np.Inf
@@ -163,8 +177,6 @@ class Trainer:
             x = x.to(self.device)
             y = y.to(self.device)
         
-            current_lr = self.optimizer.param_groups[0]['lr']
-
             if self.cfg.mixed_precision:
                 with autocast():
                     pred = self.model(x)
@@ -238,8 +250,6 @@ class Trainer:
                         pred[0].detach().cpu().numpy()
                     )
 
-        torch.cuda.empty_cache()
-
         return np.average(losses), np.average(metrics)
 
     def inference(self, test_loader):
@@ -250,18 +260,26 @@ class Trainer:
         result_preds = []
 
         p_bar = tqdm(enumerate(test_loader), total=len(test_loader), desc='Infer', position=0, leave=True)
-        for i, (batch_path, x) in p_bar:
-            torch.cuda.empty_cache()
-            
-            x = x.to(self.device)
+        for batch_idx, (batch_path, batch_x) in p_bar:
+            batch_x = batch_x.to(self.device)
 
             with torch.no_grad():
-                batch_pred = self.best_model(x)
+                batch_pred = self.best_model(batch_x)
 
-                for path, pred in zip(batch_path, batch_pred):
+                batch_pred = batch_pred * 255.
+
+                # check results
+                if not self.cfg.DEBUG and batch_idx == 0:
+                    log_infer_results(
+                        os.path.basename(batch_path[0][0]),
+                        batch_x[0].detach().cpu().numpy().clone(),
+                        batch_pred[0].detach().cpu().numpy().clone()
+                    )
+
+                for path, x, pred in zip(batch_path, batch_x, batch_pred):
                     name = os.path.basename(path)
 
-                    pred = pred.squeeze().cpu().numpy() * 255.
+                    pred = pred.squeeze().cpu().numpy()
                     pred = A.Resize(*self.cfg.original_img_size, always_apply=True)(image=pred)['image']
 
                     result_names.append(name)

@@ -47,7 +47,7 @@ def main(cfg):
     if cfg.DEBUG:
         cfg.epoch = 1
     else:
-        wandb.init(project="dacon-sem", entity="normalkim", config=cfg, name=f'{cfg.name}-{cfg.dt_string}')
+        wandb.init(project=cfg.project, entity=cfg.entity, config=cfg, name=f'{cfg.name}-{cfg.dt_string}')
     print(OmegaConf.to_yaml(cfg))
     
     device = torch.device(cfg.device if torch.cuda.is_available() else "cpu")
@@ -60,8 +60,8 @@ def main(cfg):
     # Init lightning model
     print(f"Instantiating model <{cfg.model._target_}>")
     model = hydra.utils.instantiate(cfg.model)
-    print(model)
-    for data_path, sem, depth in valid_loader:
+    # print(model)
+    for data_path, sem, depth, case in valid_loader:
         break
     summary(model.to(device), sem.to(device))
 

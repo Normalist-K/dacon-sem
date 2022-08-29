@@ -1,15 +1,22 @@
-model_ema: True
+model_ema: False
 criterion: MSELoss
 optimizer: 
   name: adam # adamw, adam, sgd
   lr: 3e-4
+  amsgrad: True # for adam
   weight_decay: 0
-  momentum: 0.9
+  momentum: 0.9 # for sgd
   clipping: False
 scheduler:
-  name: CosineAnnealingLR
+  # name: CosineAnnealingLR
+  # min_lr: 1e-7
+  #
+  name: ReduceLROnPlateau
+  lr_factor: 0.4
+  patience: 2
+  threshold_mode: 'rel'
+  cooldown: 0
   min_lr: 1e-7
-  # name: ReduceLROnPlateau
-  # lr_factor: 0.5
-  # patience: 5
+  eps: 1e-08
+  #
   warmup: False

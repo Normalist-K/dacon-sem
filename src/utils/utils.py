@@ -59,11 +59,29 @@ def get_png_image(img_path):
     return img
 
 
+def unnormalize(images):
+        return (0.5*np.array(images)+0.5)*255
+
+
 def log_predictions(id, x, y, pred):
 
     import wandb
 
+    x = unnormalize(x)
+    y = y * 255.
+    pred = pred * 255
     cat = np.concatenate([x, y, pred], axis=2)
+    cat = np.transpose(cat , (1, 2, 0))
+
+    images = wandb.Image(cat, caption=f"{id} (SEM / DEPTH / OUTPUT)")
+    wandb.log({"examples": images})
+
+def log_infer_results(id, x, pred):
+
+    import wandb
+
+    x = unnormalize(x)
+    cat = np.concatenate([x, pred], axis=2)
     cat = np.transpose(cat , (1, 2, 0))
 
     images = wandb.Image(cat, caption=f"{id} (SEM / DEPTH / OUTPUT)")

@@ -11,8 +11,6 @@ from torchsummaryX import summary
 
 def extras(cfg):
 
-    cfg.dt_string = datetime.now().strftime("%d:%H:%M:%S")
-
     print("Disabling python warnings! <config.ignore_warnings=True>")
     warnings.filterwarnings("ignore")
 
@@ -29,9 +27,6 @@ def extras(cfg):
 
     if not cfg.DEBUG and not os.path.exists(cfg.path.submissions): 
         os.makedirs(cfg.path.submissions)
-    save_folder = f'{cfg.name}-{cfg.dt_string}'
-    if not cfg.DEBUG and not os.path.exists(os.path.join(cfg.path.weights, save_folder)): 
-        os.makedirs(os.path.join(cfg.path.weights, save_folder))
 
 
 @hydra.main(config_path="configs/", config_name="config.yaml")
@@ -39,6 +34,10 @@ def main(cfg):
 
     from src.trainer import Trainer
     from src.utils.utils import save_submission, set_seed, load_dataloader
+
+    cfg.resume = True
+
+    wandb.init(project=cfg.project, entity=cfg.entity, name=f'{cfg.name}')
 
     set_seed(cfg.seed)
     extras(cfg)

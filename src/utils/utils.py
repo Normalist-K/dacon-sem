@@ -84,5 +84,5 @@ def log_infer_results(id, x, pred):
     cat = np.concatenate([x, pred], axis=2)
     cat = np.transpose(cat , (1, 2, 0))
 
-    images = wandb.Image(cat, caption=f"{id} (SEM / DEPTH / OUTPUT)")
+    images = wandb.Image(cat, caption=f"{id} (SEM / OUTPUT)")
     wandb.log({"examples": images})

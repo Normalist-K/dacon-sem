@@ -271,9 +271,9 @@ class Trainer:
                 # check results
                 if not self.cfg.DEBUG and batch_idx == 0:
                     log_infer_results(
-                        os.path.basename(batch_path[0][0]),
-                        batch_x[0].detach().cpu().numpy().clone(),
-                        batch_pred[0].detach().cpu().numpy().clone()
+                        os.path.basename(batch_path[0]),
+                        batch_x[0].detach().cpu().numpy().copy(),
+                        batch_pred[0].detach().cpu().numpy().copy()
                     )
 
                 for path, x, pred in zip(batch_path, batch_x, batch_pred):

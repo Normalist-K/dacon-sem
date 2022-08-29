@@ -156,7 +156,7 @@ class Trainer:
 
         losses = []
         pbar = tqdm(enumerate(train_loader), total=len(train_loader), leave=True, position=0, desc='Train')
-        for batch_idx, (data_path, x, y) in pbar:
+        for batch_idx, (data_path, x, y, aux_y) in pbar:
 
             self.optimizer.zero_grad()
             
@@ -215,7 +215,7 @@ class Trainer:
 
         losses, metrics = [], []
         p_bar = tqdm(enumerate(valid_loader), total=len(valid_loader), desc='Valid', position=0, leave=True)
-        for batch_idx, (data_path, x, y) in p_bar:
+        for batch_idx, (data_path, x, y, aux_y) in p_bar:
             
             x = x.to(self.device)
             y = y.to(self.device)

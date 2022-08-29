@@ -20,7 +20,9 @@ class SEMDataModule():
         num_workers: int = 8,
         pin_memory: bool = True,
         verbose: bool = False,
+        aug: bool = True,
         resize: list = [96, 64],
+        aux: bool = False
     ):
 
         self.data_path = data_path
@@ -30,7 +32,9 @@ class SEMDataModule():
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.verbose = verbose
+        self.aug = aug
         self.resize = resize
+        self.aux = aux
 
         self.data_train: Optional[Dataset] = None
         self.data_val: Optional[Dataset] = None
@@ -75,7 +79,7 @@ class SEMDataModule():
         test_sem_paths = os.path.join(data_path, 'test', 'SEM', '*.png')
         test_sem_paths = np.array(sorted(glob(test_sem_paths)))
 
-        transform = get_transform(self.resize)
+        transform = get_transform(self.resize) if self.aug else None
 
         # load datasets only if they're not loaded already
         if not self.data_train and not self.data_val:
@@ -83,15 +87,15 @@ class SEMDataModule():
             if stage in (None, 'fit'):
                 if self.cfg.small_dataset:
                     small_len = len(train_sem_paths) // 10
-                    self.data_train = SEMDataset(train_sem_paths[:small_len], train_depth_paths[:small_len], transform)
+                    self.data_train = SEMDataset(train_sem_paths[:small_len], train_depth_paths[:small_len], transform, self.aux)
                 else:
-                    self.data_train = SEMDataset(train_sem_paths, train_depth_paths, transform)
-                self.data_val = SEMDataset(valid_sem_paths, valid_depth_paths, transform)
+                    self.data_train = SEMDataset(train_sem_paths, train_depth_paths, transform, self.aux)
+                self.data_val = SEMDataset(valid_sem_paths, valid_depth_paths, transform, self.aux)
                 if self.verbose: print('train/val dataset loaded.')
 
         if not self.data_test:
             if stage in (None, 'predict'):
-                self.data_test = SEMDataset(test_sem_paths, None, transform)
+                self.data_test = SEMDataset(test_sem_paths, None, transform, False)
                 if self.verbose: print('test dataset loaded.')
 
 

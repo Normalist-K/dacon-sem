@@ -8,4 +8,6 @@ batch_size: 128
 num_workers: 8
 pin_memory: True
 verbose: True
+aug: True
 resize: [96, 64]
+aux: True

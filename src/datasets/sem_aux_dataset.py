@@ -3,7 +3,7 @@ from torch.utils.data import Dataset
 from albumentations.pytorch import ToTensorV2
 
 
-class SEMDataset(Dataset):
+class SEMAuxDataset(Dataset):
     def __init__(
         self, 
         sem_path_list, 
@@ -14,14 +14,28 @@ class SEMDataset(Dataset):
     
         self.sem_path_list = sem_path_list
         self.depth_path_list = depth_path_list
-        if transform is not None:
-            self.train_transform = transform[0]
-            self.infer_transform = transform[1]
-        else:
-            self.train_transform = None
-        
+        self.train_transform = transform[0]
+        self.infer_transform = transform[1]
+        self.aux = aux
+
+    def embedding(self, case):
+
+        assert case in ['Case_1', 'Case_2', 'Case_3', 'Case_4']
+
+        emb_dict = {
+            'Case_1': 0,
+            'Case_2': 1,
+            'Case_3': 2,
+            'Case_4': 3
+        }
+        return emb_dict[case]
+
     def __getitem__(self, idx):
         sem_path = self.sem_path_list[idx]
+
+        case = sem_path.split('/')[-3]
+        case_emb = self.embedding(case) if self.aux else None
+
         sem_img = cv2.imread(sem_path, cv2.IMREAD_GRAYSCALE) / 255.
 
         if self.depth_path_list is not None:
@@ -37,7 +51,7 @@ class SEMDataset(Dataset):
                 sem_img = transform(image=sem_img)['image']
                 depth_img = transform(image=depth_img)['image']
 
-            return (sem_path, depth_path), sem_img.float(), depth_img.float()
+            return (sem_path, depth_path), sem_img.float(), depth_img.float(), case_emb
 
         else:
             if self.infer_transform:

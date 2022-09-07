@@ -15,7 +15,7 @@ from warmup_scheduler import GradualWarmupScheduler
 
 from src.models.components.model_ema import ModelEMA
 from src.utils.metric import rmse
-from src.utils.utils import log_infer_results, log_predictions, unnormalize
+from src.utils.utils import log_infer_results, log_predictions, unnormalize, log_heatmap
 
 
 class Trainer:
@@ -123,16 +123,31 @@ class Trainer:
             
             # Log
             if not self.cfg.DEBUG:
-                wandb.log({"train_loss": train_loss,
-                           "train_depth_loss": train_depth_loss,
-                           "train_aux_loss": train_aux_loss,
-                           "valid_loss": valid_loss, 
-                           "valid_metric": valid_metric,
-                           "valid_depth_loss": valid_depth_loss,
-                           "valid_aux_loss": valid_aux_loss,
-                           "valid_acc": valid_acc,
-                           "lr": self.optimizer.param_groups[0]['lr'],
-                           })
+                # wandb.log({"train_loss": train_loss,
+                #            "train_depth_loss": train_depth_loss,
+                #            "train_aux_loss": train_aux_loss,
+                #            "valid_loss": valid_loss, 
+                #            "valid_metric": valid_metric,
+                #            "valid_depth_loss": valid_depth_loss,
+                #            "valid_aux_loss": valid_aux_loss,
+                #            "valid_acc": valid_acc,
+                #            "lr": self.optimizer.param_groups[0]['lr'],
+                #            })
+                wandb.log({
+                    "train": {
+                        "loss": train_loss,
+                        "depth_loss": train_depth_loss,
+                        "aux_loss": train_aux_loss,
+                        "lr": self.optimizer.param_groups[0]['lr'],
+                    },
+                    "valid": {
+                        "loss": valid_loss, 
+                        "metric": valid_metric,
+                        "depth_loss": valid_depth_loss,
+                        "aux_loss": valid_aux_loss,
+                        "acc": valid_acc,
+                    },
+                })           
         
             # Model EMA & Early stopping & Model save
             if valid_metric < self.best_valid_metric:
@@ -141,6 +156,7 @@ class Trainer:
                 else:
                     self.best_model = deepcopy(self.model)
                 self.best_valid_metric = valid_metric
+                self.best_valid_preds = self.valid_preds
                 self.es_patience = 0
                 if not self.cfg.DEBUG:
                     torch.save({
@@ -242,6 +258,9 @@ class Trainer:
         aux_losses = []
         correct, total = 0, 0
         p_bar = tqdm(enumerate(valid_loader), total=len(valid_loader), desc='Valid', position=0, leave=True)
+        
+        preds = []
+
         for batch_idx, (data_path, x, y, aux_y) in p_bar:
             
             x = x.to(self.device)
@@ -250,6 +269,7 @@ class Trainer:
 
             with torch.no_grad():
                 pred, aux_pred = self.model(x)
+                preds.append(pred*255.)
 
                 depth_loss = self.criterion(pred, y)
                 aux_loss = self.aux_criterion(aux_pred, aux_y)
@@ -275,6 +295,8 @@ class Trainer:
                         pred[0].detach().cpu().numpy()
                     )
         accuracy = correct / total * 100
+
+        self.valid_preds = torch.cat(preds, dim=0).squeeze().detach().cpu().numpy()
 
         return np.average(losses), np.average(metrics), np.average(depth_losses), np.average(aux_losses), accuracy
 
@@ -306,11 +328,18 @@ class Trainer:
                     name = os.path.basename(path)
 
                     pred = pred.squeeze().cpu().numpy()
-                    if self.cfg.datamodule.aug:
-                        pred = A.Resize(*self.cfg.original_img_size, always_apply=True)(image=pred)['image']
+                    # if self.cfg.datamodule.aug:
+                    pred = A.Resize(*self.cfg.original_img_size, always_apply=True)(image=pred)['image']
                         
 
                     result_names.append(name)
                     result_preds.append(pred)
+
+        preds = np.concatenate(result_preds, axis=0)
+        preds = preds.reshape(len(result_preds), 72, 48)
+        if not self.cfg.DEBUG:
+            # if hasattr(self, 'best_valid_preds'):
+            #     log_heatmap(self.best_valid_preds, self.cfg.name, 'valid')
+            log_heatmap(preds, self.cfg.name, 'test')
 
         return result_names, result_preds

@@ -8,7 +8,7 @@ from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import DataLoader, Dataset
 
 from src.datasets.sem_dataset import SEMDataset
-from src.datasets.transform import get_transform
+from src.datasets.transform import get_transform, get_transform1, get_transform2
 
 
 class SEMDataModule():
@@ -21,7 +21,7 @@ class SEMDataModule():
         num_workers: int = 8,
         pin_memory: bool = True,
         verbose: bool = False,
-        aug: bool = True,
+        aug: int = 0,
         resize: list = [96, 64],
         aux: bool = False
     ):
@@ -33,7 +33,7 @@ class SEMDataModule():
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.verbose = verbose
-        self.aug = aug
+        self.aug = int(aug)
         self.resize = resize
         self.aux = aux
 
@@ -81,7 +81,13 @@ class SEMDataModule():
         test_sem_paths = os.path.join(data_path, 'test', 'SEM', '*.png')
         test_sem_paths = np.array(sorted(glob(test_sem_paths)))
 
-        transform = get_transform(self.resize) if self.aug else None
+        # transform = get_transform(self.resize) if self.aug else None
+        if self.aug == 0:
+            transform = get_transform(self.resize)
+        elif self.aug == 1:
+            transform = get_transform1(self.resize)
+        elif self.aug == 2:
+            transform = get_transform2(self.resize)
 
         # load datasets only if they're not loaded already
         if not self.data_train and not self.data_val:

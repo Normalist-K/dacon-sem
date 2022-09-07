@@ -4,11 +4,11 @@ defaults:
   - _self_
   - datamodule: sem.yaml
   - model: unet.yaml
-  - path: cricket.yaml
+  - path: devbox.yaml
   - trainer: default.yaml
 
 name: 'baseline_unet++_eff_b0'
-device: 'cuda:0'
+device: 'cuda:5'
 seed: 42
 
 DEBUG: False
@@ -16,8 +16,8 @@ small_dataset: False
 
 # learning
 resume: False
-epoch: 15
-es_patience: 0 # if es_patient == 0, do not early stop.
+epoch: 25
+es_patience: 3 # if es_patient == 0, do not early stop.
 mixed_precision: False
 
 # etc

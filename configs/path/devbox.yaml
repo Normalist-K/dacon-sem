@@ -1,0 +1,5 @@
+base: '/home/youngkim21/dacon/dacon-sem/output'
+data: '/home/youngkim21/dacon/sem-data'
+submissions: '/home/youngkim21/dacon/dacon-sem/output/submissions/'
+weights: '/home/youngkim21/dacon/dacon-sem/output/weights/'
+pretrained: '/home/youngkim21/dacon/dacon-sem/output/weights/diff_norm_cont.-04:02:09:44/34.pth'

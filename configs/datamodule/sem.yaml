@@ -3,11 +3,11 @@ _target_: src.datasets.sem_datamodule.SEMDataModule
 # params of datamodule class __init__ function
 data_path: ${path.data} # data_path is specified in config.yaml
 n_splits: 5
-fold: 0
+fold: 1
 batch_size: 256
 num_workers: 8
 pin_memory: True
 verbose: True
-aug: True
+aug: 0 # 0, 1, 2
 resize: [96, 64]
 aux: True

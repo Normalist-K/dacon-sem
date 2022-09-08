@@ -188,6 +188,20 @@ class Trainer:
             if (self.cfg.es_patience != 0) and (self.es_patience == self.cfg.es_patience):
                 break
 
+    def step(self, x, y, aux_y):
+        pred, aux_pred = self.model(x)
+        depth_loss = self.criterion(pred, y)
+        aux_loss = self.aux_criterion(aux_pred, aux_y)
+        loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
+
+        return {
+            "pred": pred,
+            "aux_pred" : aux_pred, 
+            "loss" : loss, 
+            "depth_loss" : depth_loss, 
+            "aux_loss" : aux_loss
+            }
+
     def train_epoch(self, train_loader):
         self.model.train()
 
@@ -205,10 +219,10 @@ class Trainer:
         
             if self.cfg.mixed_precision:
                 with autocast():
-                    pred, aux_pred = self.model(x)
-                    depth_loss = self.criterion(pred, y)
-                    aux_loss = self.aux_criterion(aux_pred, aux_y)
-                    loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
+                    step_out = self.step(x, y, aux_y)
+                    aux_loss = step_out['aux_loss']
+                    depth_loss = step_out['depth_loss']
+                    loss = step_out['loss']
 
                 self.scaler.scale(loss).backward()
 
@@ -221,10 +235,10 @@ class Trainer:
                 self.scaler.update()
 
             else:
-                pred, aux_pred = self.model(x)
-                depth_loss = self.criterion(pred, y)
-                aux_loss = self.aux_criterion(aux_pred, aux_y)
-                loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
+                step_out = self.step(x, y, aux_y)
+                aux_loss = step_out['aux_loss']
+                depth_loss = step_out['depth_loss']
+                loss = step_out['loss']
 
                 loss.backward()
 
@@ -268,13 +282,14 @@ class Trainer:
             aux_y = aux_y.to(self.device)
 
             with torch.no_grad():
-                pred, aux_pred = self.model(x)
+                step_out = self.step(x, y, aux_y)
+                pred = step_out['pred']
+                aux_pred = step_out['aux_pred']
+                aux_loss = step_out['aux_loss']
+                depth_loss = step_out['depth_loss']
+                loss = step_out['loss']
+
                 preds.append(pred*255.)
-
-                depth_loss = self.criterion(pred, y)
-                aux_loss = self.aux_criterion(aux_pred, aux_y)
-                loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
-
                 depth_losses.append(depth_loss.cpu().item())
                 aux_losses.append(aux_loss.cpu().item())
                 losses.append(loss.cpu().item())

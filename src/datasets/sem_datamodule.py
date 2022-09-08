@@ -72,11 +72,14 @@ class SEMDataModule():
         if self.verbose:
             print(f'Fold {self.fold} : train {len(train_index)}, valid {len(valid_index)}')
 
-        train_sem_paths = simulation_sem_paths[train_index]
-        train_depth_paths = simulation_depth_paths[train_index]
+        simulation_sem_paths_train = simulation_sem_paths[train_index]
+        depth_paths_train = simulation_depth_paths[train_index]
         
-        valid_sem_paths = simulation_sem_paths[valid_index]
-        valid_depth_paths = simulation_depth_paths[valid_index]
+        simulation_sem_paths_valid = simulation_sem_paths[valid_index]
+        depth_paths_valid = simulation_depth_paths[valid_index]
+
+        train_sem_paths = os.path.join(data_path, 'train', 'SEM', '*', '*', '*.png')
+        train_sem_paths = np.array(sorted(glob(train_sem_paths)))
 
         test_sem_paths = os.path.join(data_path, 'test', 'SEM', '*.png')
         test_sem_paths = np.array(sorted(glob(test_sem_paths)))
@@ -94,16 +97,16 @@ class SEMDataModule():
 
             if stage in (None, 'fit'):
                 if self.cfg.small_dataset:
-                    small_len = len(train_sem_paths) // 10
-                    self.data_train = SEMDataset(deepcopy(train_sem_paths[:small_len]), deepcopy(train_depth_paths[:small_len]), transform, self.aux)
+                    small_len = len(simulation_sem_paths_train) // 10
+                    self.data_train = SEMDataset(deepcopy(simulation_sem_paths_train[:small_len]), deepcopy(depth_paths_train[:small_len]), train_sem_paths, transform, self.aux)
                 else:
-                    self.data_train = SEMDataset(train_sem_paths, train_depth_paths, transform, self.aux)
-                self.data_val = SEMDataset(valid_sem_paths, valid_depth_paths, transform, self.aux)
+                    self.data_train = SEMDataset(simulation_sem_paths_train, depth_paths_train, train_sem_paths, transform, self.aux)
+                self.data_val = SEMDataset(simulation_sem_paths_valid, depth_paths_valid, train_sem_paths, transform, self.aux)
                 if self.verbose: print('train/val dataset loaded.')
 
         if not self.data_test:
             if stage in (None, 'predict'):
-                self.data_test = SEMDataset(test_sem_paths, None, transform, False)
+                self.data_test = SEMDataset(test_sem_paths, None, None, transform, False)
                 if self.verbose: print('test dataset loaded.')
 
 

@@ -123,16 +123,6 @@ class Trainer:
             
             # Log
             if not self.cfg.DEBUG:
-                # wandb.log({"train_loss": train_loss,
-                #            "train_depth_loss": train_depth_loss,
-                #            "train_aux_loss": train_aux_loss,
-                #            "valid_loss": valid_loss, 
-                #            "valid_metric": valid_metric,
-                #            "valid_depth_loss": valid_depth_loss,
-                #            "valid_aux_loss": valid_aux_loss,
-                #            "valid_acc": valid_acc,
-                #            "lr": self.optimizer.param_groups[0]['lr'],
-                #            })
                 wandb.log({
                     "train": {
                         "loss": train_loss,
@@ -188,10 +178,35 @@ class Trainer:
             if (self.cfg.es_patience != 0) and (self.es_patience == self.cfg.es_patience):
                 break
 
-    def step(self, x, y, aux_y):
+    def step_(self, x, y, aux_label):
+
+        self.model.check_input_shape(x)
+
+        features = self.model.encoder(x)
+        decoder_output = self.model.decoder(*features)
+
+        pred = self.model.segmentation_head(decoder_output)
+
+        if self.model.classification_head is not None:
+            aux_pred = self.model.classification_head(features[-1])
+
         pred, aux_pred = self.model(x)
         depth_loss = self.criterion(pred, y)
-        aux_loss = self.aux_criterion(aux_pred, aux_y)
+        aux_loss = self.aux_criterion(aux_pred, aux_label)
+        loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
+
+        return {
+            "pred": pred,
+            "aux_pred" : aux_pred, 
+            "loss" : loss, 
+            "depth_loss" : depth_loss, 
+            "aux_loss" : aux_loss
+            }
+            
+    def step(self, x, y, aux_label):
+        pred, aux_pred = self.model(x)
+        depth_loss = self.criterion(pred, y)
+        aux_loss = self.aux_criterion(aux_pred, aux_label)
         loss = self.cfg.trainer.loss_alpha * depth_loss + aux_loss
 
         return {
@@ -209,17 +224,17 @@ class Trainer:
         depth_losses = []
         aux_losses = []
         pbar = tqdm(enumerate(train_loader), total=len(train_loader), leave=True, position=0, desc='Train')
-        for batch_idx, (data_path, x, y, aux_y) in pbar:
+        for batch_idx, (data_path, sem, depth, aux_label, train_sem, train_aux_label) in pbar:
 
             self.optimizer.zero_grad()
             
-            x = x.to(self.device)
-            y = y.to(self.device)
-            aux_y = aux_y.to(self.device)
+            sem = sem.to(self.device)
+            depth = depth.to(self.device)
+            aux_label = aux_label.to(self.device)
         
             if self.cfg.mixed_precision:
                 with autocast():
-                    step_out = self.step(x, y, aux_y)
+                    step_out = self.step(sem, depth, aux_label)
                     aux_loss = step_out['aux_loss']
                     depth_loss = step_out['depth_loss']
                     loss = step_out['loss']
@@ -235,7 +250,7 @@ class Trainer:
                 self.scaler.update()
 
             else:
-                step_out = self.step(x, y, aux_y)
+                step_out = self.step(sem, depth, aux_label)
                 aux_loss = step_out['aux_loss']
                 depth_loss = step_out['depth_loss']
                 loss = step_out['loss']
@@ -275,14 +290,14 @@ class Trainer:
         
         preds = []
 
-        for batch_idx, (data_path, x, y, aux_y) in p_bar:
+        for batch_idx, (data_path, sem, depth, aux_label, train_sem, train_aux_label) in p_bar:
             
-            x = x.to(self.device)
-            y = y.to(self.device)
-            aux_y = aux_y.to(self.device)
+            sem = sem.to(self.device)
+            depth = depth.to(self.device)
+            aux_label = aux_label.to(self.device)
 
             with torch.no_grad():
-                step_out = self.step(x, y, aux_y)
+                step_out = self.step(sem, depth, aux_label)
                 pred = step_out['pred']
                 aux_pred = step_out['aux_pred']
                 aux_loss = step_out['aux_loss']
@@ -294,19 +309,19 @@ class Trainer:
                 aux_losses.append(aux_loss.cpu().item())
                 losses.append(loss.cpu().item())
                 
-                metric = rmse(pred, y, self.device)
+                metric = rmse(pred, depth, self.device)
                 metrics.append(metric.cpu().item())
 
                 _, predicted = torch.max(aux_pred.data, 1)
-                total += aux_y.size(0)
-                correct += (predicted == aux_y).sum().item()
+                total += aux_label.size(0)
+                correct += (predicted == aux_label).sum().item()
                 
                 # check results
                 if not self.cfg.DEBUG and batch_idx == 0:
                     log_predictions(
                         os.path.basename(data_path[0][0]),
-                        x[0].detach().cpu().numpy(),
-                        y[0].detach().cpu().numpy(), 
+                        sem[0].detach().cpu().numpy(),
+                        depth[0].detach().cpu().numpy(), 
                         pred[0].detach().cpu().numpy()
                     )
         accuracy = correct / total * 100
@@ -323,11 +338,11 @@ class Trainer:
         result_preds = []
 
         p_bar = tqdm(enumerate(test_loader), total=len(test_loader), desc='Infer', position=0, leave=True)
-        for batch_idx, (batch_path, batch_x) in p_bar:
-            batch_x = batch_x.to(self.device)
+        for batch_idx, (batch_path, batch_sem) in p_bar:
+            batch_sem = batch_sem.to(self.device)
 
             with torch.no_grad():
-                batch_pred, _ = self.best_model(batch_x)
+                batch_pred, _ = self.best_model(batch_sem)
 
                 batch_pred = batch_pred * 255.
 
@@ -335,11 +350,11 @@ class Trainer:
                 if not self.cfg.DEBUG and batch_idx == 0:
                     log_infer_results(
                         os.path.basename(batch_path[0]),
-                        batch_x[0].detach().cpu().numpy().copy(),
+                        batch_sem[0].detach().cpu().numpy().copy(),
                         batch_pred[0].detach().cpu().numpy().copy()
                     )
 
-                for path, x, pred in zip(batch_path, batch_x, batch_pred):
+                for path, x, pred in zip(batch_path, batch_sem, batch_pred):
                     name = os.path.basename(path)
 
                     pred = pred.squeeze().cpu().numpy()

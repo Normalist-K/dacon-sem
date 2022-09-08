@@ -10,31 +10,40 @@ class AlbumTransforms:
         return self.transforms(image=np.array(img))['image']
 
 def get_transform(resize):
-    train_transform = A.Compose([
+    simulation_transform = A.Compose([
         A.Resize(resize[0], resize[1], always_apply=True),
-        # A.GaussianBlur(blur_limit=7, always_apply=True),
-        # A.HorizontalFlip(p=0.5),
-        # A.VerticalFlip(p=0.5),
-        # A.ShiftScaleRotate(shift_limit=0.05, 
-        #                    scale_limit=0.05, 
-        #                    rotate_limit=2, 
-        #                    p=0.5),
-        A.Normalize(mean=[0.3920],std=[0.2262], max_pixel_value=1.),
         ToTensorV2()
     ])
 
     infer_transform = A.Compose([
         A.Resize(resize[0], resize[1], always_apply=True),
-        # A.GaussianBlur(blur_limit=3, always_apply=True),
-        # A.Normalize(mean=[0.4532],std=[0.2577], max_pixel_value=1.),
-        A.Normalize(mean=[0.3920],std=[0.2262], max_pixel_value=1.),
         ToTensorV2()
     ])
 
-    return (train_transform, infer_transform)
+    train_transform = A.Compose([
+        A.Resize(resize[0], resize[1], always_apply=True),
+        ToTensorV2()
+    ])
+
+    return (simulation_transform, infer_transform, train_transform)
+
+# def get_transform(resize):
+#     simulation_transform = A.Compose([
+#         A.Resize(resize[0], resize[1], always_apply=True),
+#         A.Normalize(mean=[0.3920],std=[0.2262], max_pixel_value=1.),
+#         ToTensorV2()
+#     ])
+
+#     infer_transform = A.Compose([
+#         A.Resize(resize[0], resize[1], always_apply=True),
+#         A.Normalize(mean=[0.3920],std=[0.2262], max_pixel_value=1.),
+#         ToTensorV2()
+#     ])
+
+#     return (simulation_transform, infer_transform)
 
 def get_transform1(resize):
-    train_transform = A.Compose([
+    simulation_transform = A.Compose([
         A.Resize(resize[0], resize[1], always_apply=True),
         # A.GaussianBlur(blur_limit=7, always_apply=True),
         # A.HorizontalFlip(p=0.5),
@@ -55,10 +64,10 @@ def get_transform1(resize):
         ToTensorV2()
     ])
 
-    return (train_transform, infer_transform)
+    return (simulation_transform, infer_transform)
 
 def get_transform2(resize):
-    train_transform = A.Compose([
+    simulation_transform = A.Compose([
         A.Resize(resize[0], resize[1], always_apply=True),
         A.GaussianBlur(blur_limit=(3, 11), p=0.5),
         # A.HorizontalFlip(p=0.5),
@@ -79,5 +88,5 @@ def get_transform2(resize):
         ToTensorV2()
     ])
 
-    return (train_transform, infer_transform)
+    return (simulation_transform, infer_transform)
     
